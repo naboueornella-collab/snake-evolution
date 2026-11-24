@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Snake Evolution</title>
+<style>
+:root{--lime:#b7ff55;--mint:#48e0a4;--ink:#07111b}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:grid;place-items:center;padding:18px;color:#f3f7f4;
+font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:
+radial-gradient(ellipse at 50% 0%,#23433e 0%,#101d27 42%,#050b12 100%)}
+.shell{width:min(96vw,560px)}
+.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.brand{display:flex;align-items:center;gap:10px}
+.logo{width:42px;height:42px;border-radius:14px;background:linear-gradient(145deg,#d5ff82,#36c985);
+display:grid;place-items:center;color:#10251b;font-size:24px;box-shadow:0 7px 24px #62e7a533}
+h1{font-size:20px;letter-spacing:2px;margin:0}.sub{font-size:11px;color:#a8c0b7;letter-spacing:2px}
+.pill{border:1px solid #45665b;border-radius:30px;padding:7px 11px;color:#c9e8d8;font-size:12px}
+.panel{padding:14px;border:1px solid #345248;background:linear-gradient(145deg,#12231fdd,#0a1519ee);
+border-radius:24px;box-shadow:0 24px 65px #0008,inset 0 1px #ffffff0d}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px}
+.stat{background:#071410;border:1px solid #29483c;border-radius:14px;padding:9px 12px}
+.stat small{display:block;color:#91b4a3;font-size:10px;letter-spacing:1.5px;text-transform:uppercase}
+.stat strong{display:block;font-size:22px;margin-top:2px;color:#e9fff2;font-variant-numeric:tabular-nums}
+.stat:first-child strong{color:var(--lime)}
+.stage{position:relative;overflow:hidden;border-radius:17px;border:1px solid #3a6652;background:#07120f}
+canvas{display:block;width:100%;aspect-ratio:1;touch-action:none}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;background:#04100dcc;
+backdrop-filter:blur(5px);padding:25px;text-align:center}
+.overlay.hidden{display:none}
+.dialog{max-width:300px}
+.dialog .emoji{font-size:42px;filter:drop-shadow(0 0 18px #a8ff6a66)}
+.dialog h2{font-size:25px;margin:8px 0;color:#eaffdf}
+.dialog p{color:#b4c9bd;font-size:13px;line-height:1.55}
+button{border:0;cursor:pointer;font:inherit;font-weight:750;border-radius:12px;padding:12px 17px;
+transition:transform .15s,filter .15s}
+button:active{transform:scale(.96)}
+.primary{background:linear-gradient(135deg,#d7ff83,#69e6a1);color:#102219;box-shadow:0 8px 22px #7ce99c33}
+.secondary{background:#203a31;color:#d9f4e5;border:1px solid #456b59}
+.controls{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:13px}
+.hint{font-size:11px;color:#9ab4a7;line-height:1.5}
+.actions{display:flex;gap:7px}
+.actions button{padding:9px 11px;font-size:12px}
+.pad{display:grid;grid-template-columns:repeat(3,54px);grid-template-rows:repeat(2,42px);gap:5px;justify-content:center;margin:13px auto 0}
+.pad button{padding:0;background:#1b352c;border:1px solid #41634f;color:#dfffe9;font-size:19px}
+.pad .up{grid-column:2}.pad .left{grid-column:1;grid-row:2}.pad .down{grid-column:2;grid-row:2}.pad .right{grid-column:3;grid-row:2}
+.footer{text-align:center;color:#759287;font-size:10px;margin-top:12px;letter-spacing:.5px}
+@media(min-width:520px){.pad{display:none}}
+</style>
+</head>
+<body>
+<main class="shell">
+ <header class="top">
+  <div class="brand"><div class="logo">🐍</div><div><h1>SNAKE EVOLUTION</h1><div class="sub">ARCADE • SURVIVAL</div></div></div>
+  <div class="pill">● MODE CLASSIQUE</div>
+ </header>
+ <section class="panel">
+  <div class="stats">
+   <div class="stat"><small>Score</small><strong id="score">000</strong></div>
+   <div class="stat"><small>Record</small><strong id="best">000</strong></div>
+   <div class="stat"><small>Niveau</small><strong id="level">01</strong></div>
+  </div>
+  <div class="stage">
+   <canvas id="board" width="600" height="600"></canvas>
+   <div class="overlay" id="overlay">
+    <div class="dialog"><div class="emoji" id="ovEmoji">🐍</div><h2 id="ovTitle">Prêt à jouer ?</h2>
+     <p id="ovText">Attrape les fruits, grandis et évite les murs ainsi que ta propre queue. Plus tu manges, plus le jeu accélère.</p>
+     <button class="primary" id="mainBtn">COMMENCER</button>
+    </div>
+   </div>
+  </div>
+  <div class="controls">
+   <div class="hint">CLAVIER : flèches ou ZQSD<br>ESPACE : pause / reprise</div>
+   <div class="actions"><button class="secondary" id="pauseBtn">Ⅱ Pause</button><button class="secondary" id="soundBtn">♫ Son : off</button></div>
+  </div>
+  <div class="pad">
+   <button class="up" data-dir="up">▲</button><button class="left" data-dir="left">◀</button>
+   <button class="down" data-dir="down">▼</button><button class="right" data-dir="right">▶</button>
+  </div>
+ </section>
+ <div class="footer">Un jeu réalisé en HTML, CSS et JavaScript • Bonne partie !</div>
+</main>
+<script>
+(()=>{
+const canvas=document.getElementById('board'),ctx=canvas.getContext('2d');
+const N=25,C=24, W=600;
+const $=id=>document.getElementById(id);
+let snake,food,dir,next,score,best=+(localStorage.getItem('snakeEvolutionBest')||0),
+running=false,paused=false,loop=null,sound=false,audio=null,particles=[],tickNo=0;
+$('best').textContent=String(best).padStart(3,'0');
+const rand=()=>Math.floor(Math.random()*N);
+function tone(freq=500,dur=.07){if(!sound)return;try{audio=audio||new(window.AudioContext||window.webkitAudioContext)();
+let o=audio.createOscillator(),g=audio.createGain();o.connect(g);g.connect(audio.destination);
+o.frequency.value=freq;g.gain.setValueAtTime(.045,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+dur);
+o.start();o.stop(audio.currentTime+dur)}catch(e){}}
+function rounded(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r)}
+function placeFood(){do{food={x:rand(),y:rand()}}while(snake.some(p=>p.x===food.x&&p.y===food.y))}
+function updateStats(){$('score').textContent=String(score).padStart(3,'0');$('best').textContent=String(best).padStart(3,'0');$('level').textContent=String(1+Math.floor(score/50)).padStart(2,'0')}
+function start(){snake=[{x:12,y:12},{x:11,y:12},{x:10,y:12},{x:9,y:12}];dir={x:1,y:0};next={...dir};
+score=0;particles=[];placeFood();running=true;paused=false;updateStats();$('overlay').classList.add('hidden');
+clearInterval(loop);schedule();draw()}
+function schedule(){clearInterval(loop);let speed=Math.max(62,145-Math.floor(score/50)*9);loop=setInterval(step,speed)}
+function end(){running=false;clearInterval(loop);tone(130,.3);$('ovEmoji').textContent='💥';$('ovTitle').textContent='Partie terminée';
+$('ovText').textContent=`Ton score : ${score} points. ${score>0?'Tu peux faire encore mieux !':'Retente ta chance !'}`;
+$('mainBtn').textContent='REJOUER';$('overlay').classList.remove('hidden')}
+function step(){if(!running||paused)return;dir=next;const h={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+const eating=h.x===food.x&&h.y===food.y,body=eating?snake:snake.slice(0,-1);
+if(h.x<0||h.y<0||h.x>=N||h.y>=N||body.some(p=>p.x===h.x&&p.y===h.y)){end();return}
+snake.unshift(h);
+if(eating){score+=10;tone(650+Math.min(score,200)*2);for(let i=0;i<13;i++)particles.push({x:food.x*C+C/2,y:food.y*C+C/2,vx:(Math.random()-.5)*4,vy:(Math.random()-.5)*4,life:22});
+placeFood();if(score>best){best=score;localStorage.setItem('snakeEvolutionBest',best)}updateStats();schedule()}
+else snake.pop();tickNo++;draw()}
+function directionTo(d){const map={up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
+let v=map[d];if(v&&!(v.x===-dir.x&&v.y===-dir.y))next=v}
+function pause(){if(!running)return;paused=!paused;$('pauseBtn').textContent=paused?'▶ Reprendre':'Ⅱ Pause';
+if(paused){$('ovEmoji').textContent='⏸️';$('ovTitle').textContent='Pause';$('ovText').textContent='Prends ton temps. La partie t’attend.';$('mainBtn').textContent='REPRENDRE';$('overlay').classList.remove('hidden')}
+else $('overlay').classList.add('hidden')}
+function draw(){
+let bg=ctx.createLinearGradient(0,0,600,600);bg.addColorStop(0,'#0b2018');bg.addColorStop(1,'#07130f');ctx.fillStyle=bg;ctx.fillRect(0,0,W,W);
+ctx.strokeStyle='rgba(140,205,158,.075)';ctx.lineWidth=1;
+for(let i=0;i<=N;i++){ctx.beginPath();ctx.moveTo(i*C,0);ctx.lineTo(i*C,W);ctx.stroke();ctx.beginPath();ctx.moveTo(0,i*C);ctx.lineTo(W,i*C);ctx.stroke()}
+ // soft ambient glows
+let glow=ctx.createRadialGradient(food.x*C+12,food.y*C+12,2,food.x*C+12,food.y*C+12,55);
+glow.addColorStop(0,'#ff627344');glow.addColorStop(1,'#ff627300');ctx.fillStyle=glow;ctx.fillRect(food.x*C-45,food.y*C-45,114,114);
+ // fruit
+let fx=food.x*C+12,fy=food.y*C+13;
+ctx.shadowColor='#ff536f';ctx.shadowBlur=19;let fg=ctx.createRadialGradient(fx-4,fy-5,1,fx,fy,12);
+fg.addColorStop(0,'#ffd3a2');fg.addColorStop(.35,'#ff647a');fg.addColorStop(1,'#c51f4d');
+ctx.fillStyle=fg;ctx.beginPath();ctx.arc(fx,fy,8,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+ctx.strokeStyle='#8ce58d';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(fx,fy-7);ctx.quadraticCurveTo(fx+1,fy-15,fx+7,fy-13);ctx.stroke();
+ // snake segments with gradient and depth
+for(let i=snake.length-1;i>=0;i--){let p=snake[i],x=p.x*C,y=p.y*C,head=i===0;
+ctx.shadowColor=head?'#a8ff62':'#31d98d';ctx.shadowBlur=head?16:7;
+let g=ctx.createLinearGradient(x,y,x+C,y+C);g.addColorStop(0,head?'#e3ff9a':'#83f2a8');g.addColorStop(.5,head?'#8fe85d':'#36ce83');g.addColorStop(1,head?'#4ba83f':'#137a57');
+ctx.fillStyle=g;rounded(x+1.5,y+1.5,C-3,C-3,head?8:7);ctx.fill();ctx.shadowBlur=0;
+ctx.strokeStyle='rgba(235,255,220,.32)';ctx.lineWidth=1;ctx.stroke();
+if(head){let ex=x+12+(dir.x*4),ey=y+12+(dir.y*4);let perp={x:-dir.y,y:dir.x};
+for(let s of [-1,1]){ctx.fillStyle='#f5fff0';ctx.beginPath();ctx.arc(ex+perp.x*s*5,ey+perp.y*s*5,3.1,0,Math.PI*2);ctx.fill();
+ctx.fillStyle='#12251b';ctx.beginPath();ctx.arc(ex+perp.x*s*5+dir.x,ey+perp.y*s*5+dir.y,1.5,0,Math.PI*2);ctx.fill()}}
+}
+particles=particles.filter(p=>p.life>0);for(let p of particles){ctx.globalAlpha=p.life/22;ctx.fillStyle='#caff82';ctx.beginPath();ctx.arc(p.x,p.y,2.3,0,Math.PI*2);ctx.fill();p.x+=p.vx;p.y+=p.vy;p.life--}ctx.globalAlpha=1;
+}
+document.addEventListener('keydown',e=>{let k=e.key.toLowerCase(),m={arrowup:'up',z:'up',w:'up',arrowdown:'down',s:'down',arrowleft:'left',q:'left',a:'left',arrowright:'right',d:'right'};
+if(m[k]){e.preventDefault();directionTo(m[k])}if(k===' '){e.preventDefault();pause()}});
+document.querySelectorAll('[data-dir]').forEach(b=>b.addEventListener('click',()=>directionTo(b.dataset.dir)));
+$('mainBtn').onclick=()=>{if(running&&paused){pause();return}start()};
+$('pauseBtn').onclick=pause;
+$('soundBtn').onclick=()=>{sound=!sound;$('soundBtn').textContent=sound?'♫ Son : on':'♫ Son : off';if(sound)tone(600)};
+draw();
+})();
+</script>
+</body></html>
